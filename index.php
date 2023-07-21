@@ -1,0 +1,342 @@
+
+<?php
+session_start();
+if (!isset($_SESSION['user_id'])) {
+    header('Location: login.php');
+    exit();
+}
+
+include 'db.php';
+
+global $pdo;
+
+// Set the character encoding to utf8mb4 for smileys
+$pdo->exec('SET NAMES utf8mb4');
+
+// Function to add emojis to a message
+function addEmojis($message) {
+    // Define a mapping of possible emojis and their corresponding text representations
+    $emojiMapping = [
+        ":)" => "😊",
+        ":(" => "😢",
+        ":D" => "😄",
+        ":P" => "😜",
+        ":O" => "😮",
+        "<3" => "💙",
+        "</3" => "💙",
+        // Add more emojis and their text representations as needed
+    ];
+
+    // Iterate over each emoji in the emoji mapping and replace the text representation with the actual emoji
+    foreach ($emojiMapping as $text => $emoji) {
+        $message = str_replace($text, $emoji, $message);
+    }
+
+    return $message;
+}
+
+// Function to format time elapsed since a message was sent
+function timeElapsed($currentTimestamp, $timestamp) {
+    $currentTime = new DateTime("@$currentTimestamp");
+    $messageTime = new DateTime("@$timestamp");
+    $interval = $messageTime->diff($currentTime);
+
+    if ($interval->y > 0) {
+        return $interval->format('%y year(s) ago');
+    } elseif ($interval->m > 0) {
+        return $interval->format('%m month(s) ago');
+    } elseif ($interval->d > 0) {
+        return $interval->format('%d day(s) ago');
+    } elseif ($interval->h > 0) {
+        return $interval->format('%h hour(s) ago');
+    } elseif ($interval->i > 0) {
+        return $interval->format('%i minute(s) ago');
+    } else {
+        return 'Just now'; // Display "Just now" for messages sent within the last minute
+    }
+}
+
+// Function to format the date for display
+function formatDate($date) {
+    return date('- Y M d - g:i a', strtotime($date));
+}
+
+// Fetch conversations for the logged-in user
+$user_id = $_SESSION['user_id'];
+
+// Handle form submission for sending messages
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $message = $_POST['message'];
+
+    // Insert new message into the Message table
+    $insertQuery = "INSERT INTO Message (user_id, message) VALUES (:user_id, :message)";
+    $insertStmt = $pdo->prepare($insertQuery);
+    $insertStmt->bindValue(':user_id', $user_id, PDO::PARAM_INT);
+    $insertStmt->bindValue(':message', $message, PDO::PARAM_STR);
+    $insertStmt->execute();
+
+    // Play sound and display message on successful insert
+    echo "<audio id='sound' src='./sound.mp3' autoplay></audio>";
+}
+
+// Retrieve all messages from the database
+$sql = "SELECT * FROM Message ORDER BY message_id DESC";
+$run = $pdo->query($sql);
+
+// Get the total number of messages
+$totalMessages = $run->rowCount();
+?>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>wow_chat</title>
+    <meta name="theme-color" content="#293a4a">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=1" />
+    <meta charset="UTF-8"> <!-- Add this line to specify the character encoding for smileys and language fonts-->
+    <link rel="stylesheet" type="text/css" href="styles.css">
+    <style>
+        /* Add your custom CSS styles here */
+    </style>
+    <script>
+        // JavaScript code for theme preferences
+        function toggleDayNightMode() {
+            const dayNightSwitch = document.getElementById('day-night-switch');
+            const body = document.body;
+            if (dayNightSwitch.checked) {
+                body.classList.add('night-mode');
+                localStorage.setItem('themePreference', 'night');
+            } else {
+                body.classList.remove('night-mode');
+                localStorage.setItem('themePreference', 'day');
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            const dayNightSwitch = document.getElementById('day-night-switch');
+            dayNightSwitch.addEventListener('change', toggleDayNightMode);
+
+            const themePreference = localStorage.getItem('themePreference');
+            if (themePreference === 'night') {
+                dayNightSwitch.checked = true;
+                document.body.classList.add('night-mode');
+            }
+        });
+    </script>
+    <script>
+        // Move the ajax function inside an event listener for DOMContentLoaded
+        document.addEventListener('DOMContentLoaded', function () {
+            function ajax() {
+                var req = new XMLHttpRequest();
+
+                req.onreadystatechange = function () {
+                    if (req.readyState == 4 && req.status == 200) {
+                        document.getElementById('chat').innerHTML = req.responseText;
+                        updateTimeElapsed(); // Call the timeElapsed function after updating the chat messages
+                    }
+                };
+
+                req.open('GET', 'chat.php', true);
+                req.send();
+            }
+
+            // Call the ajax function after DOMContentLoaded
+            ajax();
+
+            // Set interval inside the DOMContentLoaded event listener
+            setInterval(function () {
+                ajax();
+            }, 1000);
+        });
+    </script>
+    <script>
+        function updateTimeElapsed() {
+            const currentTime = Math.floor(Date.now() / 1000);
+
+            // Update time elapsed for each message
+            <?php
+            $run = $pdo->query($sql);
+            while ($row = $run->fetch(PDO::FETCH_ASSOC)) {
+                $timestamp = strtotime($row['created_at']);
+                $messageId = $row['message_id'];
+            ?>
+                const timestamp<?php echo $messageId; ?> = <?php echo $timestamp; ?>;
+                const timeElapsed<?php echo $messageId; ?> = Math.max(currentTime - timestamp<?php echo $messageId; ?>, 1);
+                const timeElapsedText<?php echo $messageId; ?> = formatTimeElapsed(timeElapsed<?php echo $messageId; ?>);
+                document.getElementById('time-elapsed-<?php echo $messageId; ?>').textContent = timeElapsedText<?php echo $messageId; ?>;
+            <?php } ?>
+        }
+
+        function formatTimeElapsed(seconds) {
+            const days = Math.floor(seconds / (60 * 60 * 24));
+            const hours = Math.floor((seconds % (60 * 60 * 24)) / (60 * 60));
+            const minutes = Math.floor((seconds % (60 * 60)) / 60);
+            const remainingSeconds = seconds % 60;
+
+            if (days > 0) {
+                return days + ' day(s) ago';
+            } else if (hours > 0) {
+                return hours + ' hour(s) ago';
+            } else if (minutes > 0) {
+                return minutes + ' minute(s) ago';
+            } else {
+                return ' just now';
+            }
+        }
+
+        // Update time elapsed every second
+        setInterval(updateTimeElapsed, 1000);
+    </script>
+<script>
+        // JavaScript code for playing the sound on iOS
+        function playSound() {
+            const audio = new Audio('sound.mp3');
+            audio.play();
+        }
+</script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Function to apply the selected text color
+        function applyTextColor() {
+            const textColorPicker = document.getElementById('text-color-picker');
+            const selectedColor = textColorPicker.value;
+            document.body.style.color = selectedColor;
+            localStorage.setItem('textColor', selectedColor); // Save the selected color to local storage
+        }
+
+        // Add event listener for the text color picker
+        const textColorPicker = document.getElementById('text-color-picker');
+        textColorPicker.addEventListener('input', applyTextColor);
+
+        // Function to retrieve and apply the text color from local storage
+        function loadTextColor() {
+            const savedColor = localStorage.getItem('textColor');
+            if (savedColor) {
+                document.body.style.color = savedColor;
+                textColorPicker.value = savedColor;
+            }
+        }
+
+        // Call the function to load the text color on page load
+        loadTextColor();
+
+        // Existing JavaScript code for theme preferences, AJAX requests, and refreshing the page
+        // ...
+    });
+</script>
+<!-- <script>
+  function keepSessionAlive() {
+    // Make an AJAX request to a server endpoint (replace 'server_endpoint' with your server URL)
+    fetch('server_endpoint')
+      .then(response => {
+        // Handle the response if needed
+        if (response.status === 200) {
+          // The request was successful, do nothing
+        } else {
+          // The request failed or the session has expired, redirect to the login page
+          window.location.href = 'login.php';
+        }
+      })
+      .catch(error => {
+        // Handle errors if needed
+        console.error(error);
+      });
+  }
+
+  function refreshPage() {
+    window.location.reload();
+  }
+
+  // Make the AJAX request every 5 minutes (300,000 milliseconds)
+  //setInterval(keepSessionAlive, 300000);
+
+  // Refresh the page every 10 minutes (600,000 milliseconds) to prevent any issues with page state
+  setTimeout(refreshPage, 600000);
+</script> -->
+</head>
+<body onload="ajax();">
+    <div class="corner-menu">
+    <input type="checkbox" id="menu-toggle" class="menu-toggle">
+    <label for="menu-toggle" class="menu-toggle-label">
+        <span class="menu-icon"></span>
+    </label>
+    <div class="menu-content">
+    <button  class="close-btn" id="close-menu" id="close-menu" onclick="document.getElementById('menu-toggle').checked=!document.getElementById('menu-toggle').checked;">&times;</button>
+        <h1></h1><button onclick="playSound()">Play Sound</button>
+        <h3>Settings</h3>
+        <div class="setting">
+            <label>Day/Night</label>
+            <label for="day-night-switch" class="switch">
+                <input type="checkbox" id="day-night-switch" class="toggle-switch">
+                <span class="slider round switch"></span>
+            </label>
+        </div>
+        <!-- Add the new setting for text color -->
+        <div class="setting">
+            <label for="text-color-picker">Text Color</label>
+            <input type="color" id="text-color-picker">
+        </div>
+            <!--?php
+            // Retrieve members from the database
+            $membersQuery = "SELECT * FROM User";
+            $membersStmt = $pdo->query($membersQuery);
+            $members = $membersStmt->fetchAll(PDO::FETCH_ASSOC);
+            ?-->
+            <!--div class="members-list">
+                <h2>Members</h2>
+                <ul>
+                    <--?php
+                    foreach ($members as $member) {
+                        echo "<li>{$member['username']}</li>";
+                    }
+                    ?>
+                </ul>
+            </div-->
+            <center><a id="logout" href="logout.php"><button>Logout</button></a></center>
+            <!-- Add more settings or options as needed -->
+        </div>
+    </div>
+    <div class="container">
+        <!--h2>New Message</h2-->
+        <div class="chat-input-wrap">
+            <form method="post" action="" accept-charset="UTF-8">
+                <textarea required="required" name="message" placeholder="Enter message"></textarea>
+                <div class="send-button">
+                    <button type="submit" name="submit" value="Send">Send</button>
+                </div>
+            </form>
+        </div>
+        <!-- Your existing PHP code up to this point -->
+
+        <div class="chat-box">
+            <div id="chat"></div> <!-- Add this div with the ID "chat" where chat messages will be displayed -->
+            <?php
+            // Retrieve messages and associated usernames from the database
+            $sql = "SELECT m.message_id, m.message, m.created_at, u.username 
+                    FROM Message m 
+                    INNER JOIN User u ON m.user_id = u.user_id 
+                    ORDER BY m.message_id DESC";
+            $run = $pdo->query($sql);
+
+            while ($row = $run->fetch(PDO::FETCH_ASSOC)) {
+                $msg = htmlspecialchars($row['message'], ENT_QUOTES, 'UTF-8');
+                $date = formatDate($row['created_at']);
+                $timestamp = strtotime($row['created_at']);
+
+                // Add emojis to the message
+                $msg = addEmojis($msg);
+
+                echo "<div class='chat_data'>";
+                echo "<span title='Delete'><a style='text-decoration:none; display: inline-block; color: #ff0000;' href='delete.php?message_id=".$row['message_id']."'>&times;</a> </span>";
+                echo "<span><b>{$row['username']} - </b> </span>";
+                echo "<span style='text-align: center;' id='date-'><small>{$date}</small> </span>";
+                echo "<span><b>{$msg}</b> </span><br />";
+                echo "<span style='text-align:right;' id='time-elapsed-{$row['message_id']}'> </span>";
+                echo "</div>";
+            }
+            ?>
+        </div>
+        <!-- Display the total number of messages -->
+        <div class='total_messages'>Total Messages: <?php echo $totalMessages; ?></div>
+    </div>
+</body>
+</html>

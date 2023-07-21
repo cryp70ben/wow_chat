@@ -1,0 +1,282 @@
+<?php
+session_start();
+if (!isset($_SESSION['user_id'])) {
+    header('Location: login.php');
+    exit();
+}
+
+include 'db.php';
+
+// Set the character encoding to UTF-8
+$pdo->exec('SET NAMES utf8mb4');
+
+// Fetch conversations for the logged-in user
+$user_id = $_SESSION['user_id'];
+
+// Handle form submission for sending messages
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $message = $_POST['message'];
+    
+    // Insert new message into the Message table
+    $insertQuery = "INSERT INTO Message (user_id, message) VALUES (:user_id, :message)";
+    $insertStmt = $pdo->prepare($insertQuery);
+    $insertStmt->bindValue(':user_id', $user_id, PDO::PARAM_INT);
+    $insertStmt->bindValue(':message', $message, PDO::PARAM_STR);
+    $insertStmt->execute();
+
+    // Play sound and display message on successful insert
+    echo "<audio id='sound' src='./sound.mp3' autoplay></audio>";
+    // echo "<script>
+    //         var sound = document.getElementById('sound');
+    //         sound.volume = 1; // Adjust volume if needed
+    //       </script>";
+}
+?>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>wow_chat</title>
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta charset="UTF-8"> <!-- Add this line to specify the character encoding for smileys -->
+    <link rel="stylesheet" type="text/css" href="styles.css">
+    <style>
+        /* Add your custom CSS styles here */
+    </style>
+     <script>
+        // JavaScript code for theme preferences
+        function toggleDayNightMode() {
+            const dayNightSwitch = document.getElementById('day-night-switch');
+            const body = document.body;
+            if (dayNightSwitch.checked) {
+                body.classList.add('night-mode');
+                localStorage.setItem('themePreference', 'night');
+            } else {
+                body.classList.remove('night-mode');
+                localStorage.setItem('themePreference', 'day');
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            const dayNightSwitch = document.getElementById('day-night-switch');
+            dayNightSwitch.addEventListener('change', toggleDayNightMode);
+
+            const themePreference = localStorage.getItem('themePreference');
+            if (themePreference === 'night') {
+                dayNightSwitch.checked = true;
+                document.body.classList.add('night-mode');
+            }
+        });
+    </script>
+        <script>
+        function ajax() {
+            var req = new XMLHttpRequest();
+
+            req.onreadystatechange = function() {
+                if(req.readyState == 4 && req.status == 200) {
+                    document.getElementById('chat').innerHTML = req.responseText;
+                }
+            }
+            req.open('GET','chat.php',true);
+            req.send();
+        }
+        setInterval(function(){ajax()},1000);
+    </script>
+</head>
+<body onload="ajax();">
+ <div class="corner-menu">
+    <input type="checkbox" id="menu-toggle" class="menu-toggle">
+    <label for="menu-toggle" class="menu-toggle-label">
+      <span class="menu-icon"></span>
+    </label>
+    <div class="menu-content">
+    <h1></h1>
+      <h3>Settings</h3>
+      <div class="setting">
+        <label>Day/Night</label>
+        <input type="checkbox" id="day-night-switch" class="toggle-switch">
+        <label for="day-night-switch" class="switch">
+          <input type="checkbox" id="day-night-switch" class="toggle-switch">
+          <span class="slider round switch"></span>
+        </label>
+    </div>
+    <?php
+// Retrieve members from the database
+$membersQuery = "SELECT * FROM User";
+$membersStmt = $pdo->query($membersQuery);
+$members = $membersStmt->fetchAll(PDO::FETCH_ASSOC);
+?>
+<div class="members-list">
+  <h2>Members</h2>
+  <ul>
+    <?php
+    foreach ($members as $member) {
+      echo "<li>{$member['username']}</li>";
+    }
+    ?>
+  </ul>
+</div>
+    <a id="logout" href="logout.php">Logout</a>
+    <!-- Add more settings or options as needed -->
+  </div>
+</div>
+    <div class="container"> 
+    <h2>New Message</h2>
+    	  <div class="chat-input-wrap">
+		<form method="post" action="">
+                    <textarea required="required" name="message" placeholder="Enter message"></textarea>
+                    <div class="send-button">
+                        <input type="submit" name="submit" value="Send" />
+                    </div>
+                </form>
+	</div>
+        <div class="chat-box">
+            <div id="chat">
+		<?php
+		// Retrieve Username from the database
+		$usernameQuery = "SELECT * FROM User";
+		$usernameStmt = $pdo->query($usernameQuery);
+		$usernames = $usernameStmt->fetchAll(PDO::FETCH_ASSOC);
+
+		// Retrieve messages from the database
+		$messagesQuery = "SELECT * FROM Message ORDER BY created_at DESC";
+		$messagesStmt = $pdo->query($messagesQuery);
+		$messages = $messagesStmt->fetchAll(PDO::FETCH_ASSOC);
+
+		foreach ($messages as $message) {
+		    $username = '';
+		    foreach ($usernames as $user) {
+			if ($user['user_id'] === $message['user_id']) {
+			    $username = $user['username'];
+			    break;
+			}
+		    }
+        echo "<p>{$username}: {$message['message']} - {$message['created_at']}</p>";
+		}
+
+    
+// // Check if the "Delete All Messages" form was submitted
+// if (isset($_POST['delete_all'])) {
+//     // Include the delete_all.php file to handle the deletion
+//     include 'delete_all.php';
+// }
+
+// DateTime- To -Time Function 
+function formatDate($date) {
+  //return date('- M d - g:i a', strtotime($date));
+  return date('- Y M d - g:i a', strtotime($date));
+}
+
+// Retrieve all users from the database
+$sql1 = "SELECT * FROM user ORDER BY user_id DESC";
+$run1 = mysqli_query($connect, $sql1);
+
+// Retrieve all messages from the database
+$sql2 = "SELECT * FROM message ORDER BY message_id DESC";
+$run2 = mysqli_query($connect, $sql2);
+
+// Get the total number of messages
+$totalMessages = mysqli_num_rows($run2);
+
+// Get the current time
+$currentTimestamp = strtotime("now");
+
+while ($row = mysqli_fetch_array($run1)) {
+    $name = $row['username'];
+}
+while ($row = mysqli_fetch_array($run2)) {
+    $msg = $row['message'];
+    $date = formatDate($row['created_at']);
+    $timestamp = strtotime($row['created_at']);
+    $timeElapsed = timeElapsed($currentTimestamp, $timestamp);
+
+
+    // Add emojis to the message
+    $msg = addEmojis($msg);
+
+    echo '
+    <div class="chat_data">
+    <span title="Delete"><a style="text-decoration:none; display: inline-block; color: #ff0000;" href="delete.php?message_id='.$row['message_id'].'">X</a></span>
+    <span><b>'.$name.': </b></span>
+    <span><b>'.$msg.'</b></span>
+    <span><small>'.$date.'</small></span>
+    <span>'.$timeElapsed.'</span>
+    </div>';
+}
+
+// Display the total number of messages and the "Delete All Messages" button
+echo '<div class="total_messages">Total Messages: '.$totalMessages.'</div>';
+echo '<br><br><br><br><br><br>';
+
+		// Retrieve Username from the database
+		$usernameQuery = "SELECT * FROM user";
+		$usernameStmt = $pdo->query($usernameQuery);
+		$usernames = $usernameStmt->fetchAll(PDO::FETCH_ASSOC);
+
+		// Retrieve messages from the database
+		$messagesQuery = "SELECT * FROM message ORDER BY created_at DESC";
+		$messagesStmt = $pdo->query($messagesQuery);
+		$messages = $messagesStmt->fetchAll(PDO::FETCH_ASSOC);
+
+		foreach ($messages as $message) {
+		    $username = '';
+		    foreach ($usernames as $user) {
+			if ($user['user_id'] === $message['user_id']) {
+			    $username = $user['username'];
+			    break;
+			}
+		    }
+              // Add emojis to the message
+             $message = addEmojis($message);
+
+            echo "<div class='chat_data'>";
+            echo "<span title='Delete'><a style='text-decoration:none; display: inline-block; color: #ff0000;' href='delete.php?message_id=".$message["message_id"]."'>X</a> </span>";
+            echo "<span><b>{$username} - </b></span>";
+            echo "<span><b>{$message['message']} </b></span>";
+            echo "<span><small>{$message['created_at']}</small>: </span>";
+            echo "<span style='text-align:right;'><small>$timeElapsed</small></span>";
+            echo "</div>";
+		}
+// Display the total number of messages and the "Delete All Messages" button
+echo '<div class="total_messages">Total Messages: '.$totalMessages.'</div>';
+?>
+
+<!-- Add the "Delete All Messages" form -->
+<!--form style="text-align: center;" method="post" action="delete_all.php">
+    <input type="submit" name="delete_all" value="Delete All Messages">
+</form-->
+            </div>
+        </div>
+    </div>
+  <script>
+    // Check the current theme preference
+    const prefersDarkTheme = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const dayNightSwitch = document.getElementById('day-night-switch');
+    const body = document.body;
+
+    // Function to toggle day/night mode
+    function toggleDayNightMode() {
+      if (dayNightSwitch.checked) {
+        // Switch to night mode
+        body.classList.add('night-mode');
+        localStorage.setItem('themePreference', 'night');
+      } else {
+        // Switch to day mode
+        body.classList.remove('night-mode');
+        localStorage.setItem('themePreference', 'day');
+      }
+    }
+
+    dayNightSwitch.addEventListener('change', toggleDayNightMode);
+
+    // Retrieve and apply the user's preferred theme from local storage
+    const themePreference = localStorage.getItem('themePreference');
+
+    if (themePreference === 'night') {
+      dayNightSwitch.checked = true;
+      body.classList.add('night-mode');
+    }
+  </script>
+  
+</body>
+</html>

@@ -1,0 +1,647 @@
+<?php
+session_start();
+if (!isset($_SESSION['user_id'])) {
+    header('Location: login.php');
+    exit();
+}
+
+include 'db.php';
+
+// Set the character encoding to UTF-8
+$pdo->exec('SET NAMES utf8mb4');
+
+// Fetch conversations for the logged-in user
+$user_id = $_SESSION['user_id'];
+
+// Handle form submission for sending messages
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $message = $_POST['message'];
+    
+    // Insert new message into the Message table
+    $insertQuery = "INSERT INTO Message (user_id, message) VALUES (:user_id, :message)";
+    $insertStmt = $pdo->prepare($insertQuery);
+    $insertStmt->bindValue(':user_id', $user_id, PDO::PARAM_INT);
+    $insertStmt->bindValue(':message', $message, PDO::PARAM_STR);
+    $insertStmt->execute();
+
+    // Play sound and display message on successful insert
+    echo "<audio id='sound' src='./sound.mp3' autoplay></audio>";
+    // echo "<script>
+    //         var sound = document.getElementById('sound');
+    //         sound.volume = 1; // Adjust volume if needed
+    //       </script>";
+}
+?>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>wow_chat</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta charset="UTF-8"> <!-- Add this line to specify the character encoding for smileys -->
+    <style>
+        /* Add your custom CSS styles here */
+        /* Global Styles */
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 20px;
+}
+
+.container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+h1 {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+/* Chat Box Styles */
+
+#chat p {
+color: #333;
+}
+
+
+chat-box {
+    background-color: #f9f9f9;
+    /*border: 1px solid #ccc;*/
+    padding: 10px;
+    height: 300px;
+    overflow-y: scroll;
+}
+
+
+.chat_data {
+    width: 100%;
+    padding: 5px;
+    margin-bottom: 5px;
+    border-bottom: 1px solid silver;
+}
+
+.chat_data span:nth-child(1) {                          /************ chat X Delete *************/
+    color: #3f93ab;
+    font-size: large;
+}
+.chat_data span:nth-child(2) {                          /************ chat NAME! *************/
+    /*color: #333333;*/
+}
+.chat_data span:nth-child(3) {                          /************ chat MESSAGE *************/
+    float: right;
+    /*color: grey;*/
+    /* font-size: large; */
+}
+
+input[type='text'] {
+    width: 100%;
+    height: 40px;
+    border: 1px solid grey;
+    border-radius: 5px;
+    font-size: 15px;
+    padding: 0 0 0 10px;
+}
+
+textarea {
+    width: 100%;
+    height: 60px;
+    border: 1px solid grey;
+    border-radius: 5px;
+    font-size: 14px;
+    padding: 10px 0 0 10px;
+}
+
+textarea:hover,
+input[type='text']:hover,
+textarea:focus,
+input[type='text']:focus
+{
+    background-color: lightyellow;                      /************ INPUT COLOUR *************/
+}
+
+input[type='submit'], a#logout {
+    width: auto;
+    border: 1px solid grey;
+    border-radius: 5px;
+    text-align: center;
+    font-size: 26px;
+    color: white;
+    background-color: #92a7b6;
+    font-weight: 700;
+    padding: 0 15px 0 15px;
+    text-decoration: none;
+}
+
+input[type='submit']:hover, a#logout:hover {
+    color: #ffffff;
+    background-color: #3f93ab;
+}
+
+.send_button {
+    margin: 0 auto;
+    text-align: center;
+}
+
+.chat-input-wrap {
+    margin-top: 10px;
+}
+
+.chat-input-wrap input[type="text"],
+.chat-input-wrap textarea {
+    width: 95%;
+    width: -moz-available;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    resize: none;
+}
+
+ .send-button {
+    text-align: center;
+    margin-top: 10px;
+}
+
+.send-button input[type="submit"] {
+    padding: 10px 20px;
+    /*background-color: #4CAF50;*/
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-bottom: 10px;
+} 
+
+/* .send-button input[type="submit"]:hover {
+    background-color: #3f93ab;
+}  */
+
+/*********** menu style ***********/
+.corner-menu {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 9999;
+}
+
+.menu-toggle {
+  display: none;
+}
+
+.menu-toggle-label {
+  width: 40px;
+  height: 40px;
+  background-color: #333;
+  border-radius: 50%;
+  cursor: pointer;
+  text-align: center;
+  line-height: 40px;
+}
+
+.menu-icon::before {
+  content: "\2630";
+  font-size: 24px;
+}
+
+.menu-content h3 {
+  margin-top: 0;
+}
+
+.setting {
+  margin-bottom: 10px;
+}
+
+.toggle-switch {
+  display: none;
+}
+
+.toggle-switch + label {
+  display: inline-block;
+  vertical-align: middle;
+  margin-left: 10px;
+}
+
+.toggle-switch + label:before,
+.toggle-switch + label:after {
+  content: "";
+  display: inline-block;
+  width: 40px;
+  height: 20px;
+  border-radius: 10px;
+  transition: background-color 0.3s ease;
+}
+
+.toggle-switch + label:before {
+background-color: #848484;
+}
+
+.toggle-switch + label:after {
+  background-color: #92a7b6;
+}
+
+.toggle-switch:checked + label:before {
+  background-color: #92a7b6;
+}
+
+.toggle-switch:checked + label:after {
+background-color: #848484;
+}
+
+.menu-toggle:checked ~ .menu-content {
+  right: 0;
+}
+
+.corner-menu {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 999;
+}
+
+.menu-toggle {
+  display: none;
+}
+
+.menu-toggle-label {
+  /*display: block;*/
+  width: 30px;
+  height: 30px;
+  cursor: pointer;
+  position: relative;
+}
+
+.menu-toggle-label span {
+  display: block;
+  width: 100%;
+  height: 2px;
+  /*background-color: #000;*/
+  /*position: absolute;*/
+  top: 50%;
+  left: 0;
+  transition: transform 0.3s ease-in-out;
+}
+
+.menu-toggle-label span:first-child {
+  transform-origin: top left;
+}
+
+.menu-toggle-label span:last-child {
+  transform-origin: bottom left;
+}
+
+.menu-content {
+  display: none;
+  position: absolute;
+  right: 0;
+  width: 200px;
+  border: 1px solid #ccc;
+  padding: 20px;
+  /* box-shadow: 0 0 5px rgba(0, 0, 0, 0.3); */
+  z-index: 999;
+}
+.menu-content {
+  position: absolute;
+  top: 50px;
+  right: -200px;
+  width: 200px;
+  padding: 20px;
+  background-color: rgb(255, 255, 255);
+  box-shadow: 0 2px 5px rgb(35, 224, 234);
+  transition: right 0.3s ease;
+}
+
+.menu-toggle:checked ~ .menu-content {
+  display: block;
+}
+
+.toggle-switch {
+  margin-bottom: 10px;
+}
+
+.toggle-switch-label {
+  display: block;
+  width: 40px;
+  height: 20px;
+  background-color: #ccc;
+  border-radius: 10px;
+  cursor: pointer;
+  position: relative;
+}
+
+.toggle-switch-label:after {
+  content: '';
+  display: block;
+  width: 16px;
+  height: 16px;
+  background-color: #fff;
+  border-radius: 50%;
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  transition: transform 0.3s ease-in-out;
+}
+
+.toggle-switch:checked + .toggle-switch-label {
+  background-color: #4CAF50;
+}
+
+.toggle-switch:checked + .toggle-switch-label:after {
+  transform: translateX(20px);
+}
+
+/* Add this CSS to toggle between day and night mode */
+
+/* Day mode styles */
+body {
+  background-color: #f9f9f9;
+  color: #000;
+}
+h1::before {
+      content: "";
+      display: inline-block;
+      width: 50px; /* Adjust the width as needed */
+      height: 50px; /* Adjust the height as needed */
+      background-image: url("logo_new.png");
+      background-size: cover;
+      margin-right: 10px; /* Adjust the spacing between the logo and the text */
+    }
+
+/* Night mode styles */
+.night-mode {
+  background-color: #777;
+  color: #fff;
+    }
+.night-mode h1::before {
+      content: "";
+      display: inline-block;
+      width: 50px; /* Adjust the width as needed */
+      height: 50px; /* Adjust the height as needed */
+      background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHhtbG5zOnhsaW5rPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5L3hsaW5rIiB3aWR0aD0iMTczIiBoZWlnaHQ9IjE3MiI+PGRlZnM+PGZpbHRlciBpZD0iZGFya3JlYWRlci1pbWFnZS1maWx0ZXIiPjxmZUNvbG9yTWF0cml4IHR5cGU9Im1hdHJpeCIgdmFsdWVzPSIwLjI0OSAtMC42MTQgLTAuNjcyIDAuMDAwIDEuMDM1IC0wLjY0NiAwLjI4OCAtMC42NjQgMC4wMDAgMS4wMjAgLTAuNjM2IC0wLjYwOSAwLjI1MCAwLjAwMCAwLjk5NCAwLjAwMCAwLjAwMCAwLjAwMCAxLjAwMCAwLjAwMCIgLz48L2ZpbHRlcj48L2RlZnM+PGltYWdlIHdpZHRoPSIxNzMiIGhlaWdodD0iMTcyIiBmaWx0ZXI9InVybCgjZGFya3JlYWRlci1pbWFnZS1maWx0ZXIpIiB4bGluazpocmVmPSJkYXRhOmltYWdlL3BuZztiYXNlNjQsaVZCT1J3MEtHZ29BQUFBTlNVaEVVZ0FBQUswQUFBQ3NBZ01BQUFCMG5jUjFBQUFBQVhOU1IwSUIyY2tzZndBQUFBbHdTRmx6QUFBdUl3QUFMaU1CZUtVL2RnQUFBQWxRVEZSRkFBQUFBQUFBQmdRQTQ0SlFkZ0FBQUFOMFVrNVRBUC8vUkZEV0lRQUFBa0JKUkVGVWVKeTltY2x0eERBTVJhMkRPb2o2Y1RySUlTd2kvVGNRdy9DaWhkc0Rndmc0K2tPK3NUMFMrYmx0LzN0OUVMRUFiWkU5TDY3eWxSYzMrYzZMUmZMUTVSRHZXWEU5eEdub2RvalQwQ0o1NkhLSzk1eTRudUlrZER2RlNXaVJQSFM1eEh0R1hDOXhDcnBkNGhTMFNCNjZQT0k5RnRkSG5JQnVqemdCTFpLSExwMDRoSzZkT0lSdW5UaUVsdjRDeUNGMEhjUUJkQnZFQWZTbCtzeEEzOGozbDF6b2VxZHZDZWhIODN3clJ0NWZuZ1R5bG9EdWtzZlFuU0tHN25LSDBJTWdnaDVTUjlERGVnUTlaQTZncDJVZmVrcnNRMCtyUHZTVTE0VmVGajNvSmEwSHZheDUwRXRXQjFwWnNxR1ZwRGEwc21KREt6bE5hSFhCZ2xaVFd0RHE1eGEwbXRHQU5qN1dvWTJFT3JUeFUvUVl4azFTNmN6YnJ3VXhINnlHWjc0eVdoVHJ1V3A4em11K2huSCtRQ3VnaWF6Rk1aRVZRbmM3bVFPNUc5V002Q0N2a1J6a2hUSFl0c2RRd1lFd1FyckljeXdYZWFJTWo4YytXSGp3OXBnQjhoZ3RRQjQ0RTJYSUd5NVI0THlnU0l3dzBBOWt0dzQ5RlBTNDBZdkVYbEgwOHFPL0ZmckRzcTBBYlRKbyswSWJJOXR5MFdhT2pnbDBBTEdqRFIyYTZEaEdCejBySVZCeGdzb2VWRkN4VWcwVmdhaThSSVVySzRsUnNZM0tlTlFnc05ZRE5UV29YVUtOR0d2eFVQT0kybExVOExKV0dqWHBxUDFIeGdLekxKQVpnbXdXWk9Bd2F3aVpUc2pPUWtiWm5mNG5nUXpOUFdRYklrT1NXWjNJUkVYMkxESittYVdNekdwa2d5T0RuVm4zYUNpQXhnMW9rTUZHSkdqNGdzWTZhR0RFUmxGb3lJWEdaMmd3eDBaK2FKaUl4cFJvQU1wR3EzOXgvUUs3eWFJNUdubENPUUFBQUFCSlJVNUVya0pnZ2c9PSIgLz48L3N2Zz4=");
+      background-size: cover;
+      margin-right: 10px; /* Adjust the spacing between the logo and the text */
+    }
+.night-mode .menu-content {
+  position: absolute;
+  top: 50px;
+  right: -200px;
+  width: 200px;
+  padding: 20px;
+  background-color: rgb(120, 120, 120);
+  box-shadow: 0 2px 5px rgb(35, 224, 234);
+  transition: right 0.3s ease;
+}
+
+.members-list {
+  margin-top: 20px;
+}
+
+.members-list h2 {
+  font-size: 18px;
+}
+
+.members-list ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.members-list li {
+  margin-bottom: 5px;
+}
+    </style>
+     <script>
+        // JavaScript code for theme preferences
+        function toggleDayNightMode() {
+            const dayNightSwitch = document.getElementById('day-night-switch');
+            const body = document.body;
+            if (dayNightSwitch.checked) {
+                body.classList.add('night-mode');
+                localStorage.setItem('themePreference', 'night');
+            } else {
+                body.classList.remove('night-mode');
+                localStorage.setItem('themePreference', 'day');
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            const dayNightSwitch = document.getElementById('day-night-switch');
+            dayNightSwitch.addEventListener('change', toggleDayNightMode);
+
+            const themePreference = localStorage.getItem('themePreference');
+            if (themePreference === 'night') {
+                dayNightSwitch.checked = true;
+                document.body.classList.add('night-mode');
+            }
+        });
+    </script>
+        <script>
+        function ajax() {
+            var req = new XMLHttpRequest();
+
+            req.onreadystatechange = function() {
+                if(req.readyState == 4 && req.status == 200) {
+                    document.getElementById('chat').innerHTML = req.responseText;
+                }
+            }
+            req.open('GET','chat.php',true);
+            req.send();
+        }
+        setInterval(function(){ajax()},1000);
+    </script>
+</head>
+<body onload="ajax();">
+ <div class="corner-menu">
+    <input type="checkbox" id="menu-toggle" class="menu-toggle">
+    <label for="menu-toggle" class="menu-toggle-label">
+      <span class="menu-icon"></span>
+    </label>
+    <div class="menu-content">
+    <h1></h1>
+      <h3>Settings</h3>
+      <div class="setting">
+        <label>Day/Night</label>
+        <input type="checkbox" id="day-night-switch" class="toggle-switch">
+        <label for="day-night-switch" class="switch">
+          <input type="checkbox" id="day-night-switch" class="toggle-switch">
+          <span class="slider round switch"></span>
+        </label>
+    </div>
+    <?php
+// Retrieve members from the database
+$membersQuery = "SELECT * FROM User";
+$membersStmt = $pdo->query($membersQuery);
+$members = $membersStmt->fetchAll(PDO::FETCH_ASSOC);
+?>
+<div class="members-list">
+  <h2>Members</h2>
+  <ul>
+    <?php
+    foreach ($members as $member) {
+      echo "<li>{$member['username']}</li>";
+    }
+    ?>
+  </ul>
+</div>
+    <a id="logout" href="logout.php">Logout</a>
+    <!-- Add more settings or options as needed -->
+  </div>
+</div>
+    <div class="container"> 
+    <h2>New Message</h2>
+    	  <div class="chat-input-wrap">
+		<form method="post" action="">
+                    <textarea required="required" name="message" placeholder="Enter message"></textarea>
+                    <div class="send-button">
+                        <input type="submit" name="submit" value="Send" />
+                    </div>
+                </form>
+	</div>
+        <div class="chat-box">
+            <div id="chat">
+		<?php
+		// Retrieve Username from the database
+		$usernameQuery = "SELECT * FROM User";
+		$usernameStmt = $pdo->query($usernameQuery);
+		$usernames = $usernameStmt->fetchAll(PDO::FETCH_ASSOC);
+
+		// Retrieve messages from the database
+		$messagesQuery = "SELECT * FROM Message ORDER BY created_at DESC";
+		$messagesStmt = $pdo->query($messagesQuery);
+		$messages = $messagesStmt->fetchAll(PDO::FETCH_ASSOC);
+
+		foreach ($messages as $message) {
+		    $username = '';
+		    foreach ($usernames as $user) {
+			if ($user['user_id'] === $message['user_id']) {
+			    $username = $user['username'];
+			    break;
+			}
+		    }
+        echo "<p>{$username}: {$message['message']} - {$message['created_at']}</p>";
+		}
+
+    
+// // Check if the "Delete All Messages" form was submitted
+// if (isset($_POST['delete_all'])) {
+//     // Include the delete_all.php file to handle the deletion
+//     include 'delete_all.php';
+// }
+
+// DateTime- To -Time Function 
+function formatDate($date) {
+  //return date('- M d - g:i a', strtotime($date));
+  return date('- Y M d - g:i a', strtotime($date));
+}
+
+// Retrieve all users from the database
+$sql1 = "SELECT * FROM user ORDER BY user_id DESC";
+$run1 = mysqli_query($connect, $sql1);
+
+// Retrieve all messages from the database
+$sql2 = "SELECT * FROM message ORDER BY message_id DESC";
+$run2 = mysqli_query($connect, $sql2);
+
+// Get the total number of messages
+$totalMessages = mysqli_num_rows($run2);
+
+// Get the current time
+$currentTimestamp = strtotime("now");
+
+while ($row = mysqli_fetch_array($run1)) {
+    $name = $row['username'];
+}
+while ($row = mysqli_fetch_array($run2)) {
+    $msg = $row['message'];
+    $date = formatDate($row['created_at']);
+    $timestamp = strtotime($row['created_at']);
+    $timeElapsed = timeElapsed($currentTimestamp, $timestamp);
+
+
+    // Add emojis to the message
+    $msg = addEmojis($msg);
+
+    echo '
+    <div class="chat_data">
+    <span title="Delete"><a style="text-decoration:none; display: inline-block; color: #ff0000;" href="delete.php?message_id='.$row['message_id'].'">X</a></span>
+    <span><b>'.$name.': </b></span>
+    <span><b>'.$msg.'</b></span>
+    <span><small>'.$date.'</small></span>
+    <span>'.$timeElapsed.'</span>
+    </div>';
+}
+
+// Display the total number of messages and the "Delete All Messages" button
+echo '<div class="total_messages">Total Messages: '.$totalMessages.'</div>';
+echo '<br><br><br><br><br><br>';
+
+		// Retrieve Username from the database
+		$usernameQuery = "SELECT * FROM user";
+		$usernameStmt = $pdo->query($usernameQuery);
+		$usernames = $usernameStmt->fetchAll(PDO::FETCH_ASSOC);
+
+		// Retrieve messages from the database
+		$messagesQuery = "SELECT * FROM message ORDER BY created_at DESC";
+		$messagesStmt = $pdo->query($messagesQuery);
+		$messages = $messagesStmt->fetchAll(PDO::FETCH_ASSOC);
+
+		foreach ($messages as $message) {
+		    $username = '';
+		    foreach ($usernames as $user) {
+			if ($user['user_id'] === $message['user_id']) {
+			    $username = $user['username'];
+			    break;
+			}
+		    }
+              // Add emojis to the message
+             $message = addEmojis($message);
+
+            echo "<div class='chat_data'>";
+            echo "<span title='Delete'><a style='text-decoration:none; display: inline-block; color: #ff0000;' href='delete.php?message_id=".$message["message_id"]."'>X</a> </span>";
+            echo "<span><b>{$username} - </b></span>";
+            echo "<span><b>{$message['message']} </b></span>";
+            echo "<span><small>{$message['created_at']}</small>: </span>";
+            echo "<span style='text-align:right;'><small>$timeElapsed</small></span>";
+            echo "</div>";
+		}
+
+?>
+
+<!-- Add the "Delete All Messages" form -->
+<!--form style="text-align: center;" method="post" action="delete_all.php">
+    <input type="submit" name="delete_all" value="Delete All Messages">
+</form-->
+            </div>
+        </div>
+    </div>
+  <script>
+    // Check the current theme preference
+    const prefersDarkTheme = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const dayNightSwitch = document.getElementById('day-night-switch');
+    const body = document.body;
+
+    // Function to toggle day/night mode
+    function toggleDayNightMode() {
+      if (dayNightSwitch.checked) {
+        // Switch to night mode
+        body.classList.add('night-mode');
+        localStorage.setItem('themePreference', 'night');
+      } else {
+        // Switch to day mode
+        body.classList.remove('night-mode');
+        localStorage.setItem('themePreference', 'day');
+      }
+    }
+
+    dayNightSwitch.addEventListener('change', toggleDayNightMode);
+
+    // Retrieve and apply the user's preferred theme from local storage
+    const themePreference = localStorage.getItem('themePreference');
+
+    if (themePreference === 'night') {
+      dayNightSwitch.checked = true;
+      body.classList.add('night-mode');
+    }
+  </script>
+  
+</body>
+</html>

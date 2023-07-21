@@ -1,0 +1,127 @@
+<?php
+include 'db.php';
+
+global $pdo;
+global $connect;
+
+header('Content-Type: text/html; charset=utf8');
+
+function addEmojis($message) {
+    // Define a mapping of possible emojis and their corresponding text representations
+    $emojiMapping = [
+        ":)" => "😊",
+        ":(" => "😢",
+        ":D" => "😄",
+        ":P" => "😜",
+        ":O" => "😮",
+        "<3" => "💙",
+        // Add more emojis and their text representations as needed
+    ];
+
+    // Iterate over each emoji in the emoji mapping and replace the text representation with the actual emoji
+    foreach ($emojiMapping as $text => $emoji) {
+        $message = str_replace($text, $emoji, $message);
+    }
+
+    return $message;
+}
+
+function timeElapsed($currentTimestamp, $timestamp) {
+    $currentTime = new DateTime("@$currentTimestamp");
+    $messageTime = new DateTime("@$timestamp");
+    $interval = $messageTime->diff($currentTime); // Swap the positions of $messageTime and $currentTime
+
+    $result = '';
+
+    if ($interval->d > 0) {
+        $result .= $interval->d . ' day(s) ';
+    }
+
+    if ($interval->h > 0) {
+        $result .= $interval->h . ' hour(s) ';
+    }
+
+    if ($interval->i > 0) {
+        $result .= $interval->i . ' minute(s) ';
+    }
+
+    if ($interval->s > 0) {
+        $result .= $interval->s . ' second(s) ';
+    }
+
+    if (empty($result)) { // Check if the result is empty, indicating no time has elapsed
+        $result = 'just now';
+    } else {
+        $result .= 'ago';
+    }
+
+    return $result;
+}
+
+// DateTime- To -Time Function 
+function formatDate($date) {
+    //return date('- M d - g:i a', strtotime($date));
+    return date('- Y M d - g:i a', strtotime($date));
+}
+
+// // Check if the "Delete All Messages" form was submitted
+// if (isset($_POST['delete_all'])) {
+//     // Include the delete_all.php file to handle the deletion
+//     include 'delete_all.php';
+// }
+
+
+// Retrieve all users from the database
+$sql1 = "SELECT * FROM User ORDER BY user_id DESC";
+$run1 = mysqli_query($connect, $sql1);
+
+// Retrieve all messages from the database
+$sql2 = "SELECT * FROM Message ORDER BY message_id DESC";
+$run2 = mysqli_query($connect, $sql2);
+
+// Get the total number of messages
+$totalMessages = mysqli_num_rows($run2);
+
+// Get the current time
+$currentTimestamp = strtotime("now");
+
+while ($row = mysqli_fetch_array($run1)) {
+    $name = $row['username'];
+}
+while ($row = mysqli_fetch_array($run2)) {
+    $msg = $row['message'];
+    $date = formatDate($row['created_at']);
+    $timestamp = strtotime($row['created_at']);
+    $timeElapsed = timeElapsed($currentTimestamp, $timestamp);
+}
+		// Retrieve Username from the database
+		$usernameQuery = "SELECT * FROM User";
+		$usernameStmt = $pdo->query($usernameQuery);
+		$usernames = $usernameStmt->fetchAll(PDO::FETCH_ASSOC);
+
+		// Retrieve messages from the database
+		$messagesQuery = "SELECT * FROM Message ORDER BY created_at DESC";
+		$messagesStmt = $pdo->query($messagesQuery);
+		$messages = $messagesStmt->fetchAll(PDO::FETCH_ASSOC);
+
+		foreach ($messages as $message) {
+		    $username = '';
+		    foreach ($usernames as $user) {
+			if ($user['user_id'] === $message['user_id']) {
+			    $username = $user['username'];
+			    break;
+			}
+		    }
+              // Add emojis to the message
+             $message = addEmojis($message);
+            echo "<div class='chat_data'>";
+            echo "<span title='Delete'><a style='text-decoration:none; display: inline-block; color: #ff0000;' href='delete.php?message_id=".$message['message_id']."'>X</a> </span>";
+            echo "<span><b>{$username} - </b></span>";
+            echo "<span><small>{$message['created_at']}</small> </span>";
+            echo "<span><b>{$message['message']} </b></span>";
+            echo "<span style='text-align:right;'><small>$timeElapsed</small></span>";
+            echo "</div>";
+		}
+        // Display the total number of messages and the "Delete All Messages" button
+        echo "<div class='total_messages'>Total Messages: ".$totalMessages."</div>";
+?>
